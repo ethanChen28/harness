@@ -51,15 +51,15 @@ claude "build a harness for a fintech risk-assessment team"
 **What this does:** Invokes the `/harness:harness` meta-skill, which analyzes your domain sentence and scaffolds a team of specialized agents + their skills into `.claude/agents/` and `.claude/skills/` in the current directory.
 
 **Try these alternate prompts** — any of them work:
-- `claude "하네스 구성해줘 — 핀테크 리스크 평가 팀"` (Korean also works)
+- `claude "配置一下 Harness — 金融科技风险评估团队"` (Chinese also works)
 - `claude "build a harness for an e-commerce fraud-detection workflow"`
 - `claude "design an agent team for technical due diligence on open-source repos"`
 
 **Expected output:** A streaming plan, then confirmation that 3–5 agent `.md` files and their skills were written.
 
-**Failure FAQ #2 — The Korean prompt returns nothing / the English one succeeds but Korean doesn't**
-**Cause:** Locale or tokenizer misrouting; harness's orchestrator matches on Korean trigger words ("하네스 구성"), which are built into the skill definition.
-**Fix:** If Korean fails, re-run with the English prompt above — the underlying skill is identical. If both fail, jump to Failure FAQ #3.
+**Failure FAQ #2 — The Chinese prompt returns nothing / the English one succeeds but Chinese doesn't**
+**Cause:** Locale or tokenizer misrouting; harness's orchestrator matches on Chinese trigger words ("配置一下 Harness"), which are built into the skill definition.
+**Fix:** If Chinese fails, re-run with the English prompt above — the underlying skill is identical. If both fail, jump to Failure FAQ #3.
 
 ---
 

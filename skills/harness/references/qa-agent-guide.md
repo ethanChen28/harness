@@ -1,228 +1,228 @@
-# QA 에이전트 설계 가이드
+# QA 智能体设计指南
 
-빌드 하네스에 QA 에이전트를 포함할 때 참고하는 가이드. 실제 프로젝트(SatangSlide)에서 발견된 버그 패턴과 그 근본 원인 분석을 바탕으로, QA가 놓치기 쉬운 결함을 체계적으로 잡는 검증 방법론을 제공한다.
-
----
-
-## 목차
-
-1. QA 에이전트가 놓치는 결함의 패턴
-2. 통합 정합성 검증 (Integration Coherence Verification)
-3. QA 에이전트 설계 원칙
-4. 검증 체크리스트 템플릿
-5. QA 에이전트 정의 템플릿
+在构建 Harness 中包含 QA 智能体时参考的指南。基于实际项目 (SatangSlide) 中发现的 Bug 模式及其根本原因分析，提供系统性地捕获 QA 容易遗漏缺陷的验证方法论。
 
 ---
 
-## 1. QA 에이전트가 놓치는 결함의 패턴
+## 目录
 
-### 1-1. 경계면 불일치 (Boundary Mismatch)
-
-가장 빈번한 결함. 두 컴포넌트가 각각 "올바르게" 구현되어 있지만, 연결 지점에서 계약이 어긋남.
-
-| 경계면 | 불일치 예시 | 놓치는 이유 |
-|--------|-----------|-----------|
-| API 응답 → 프론트 훅 | API가 `{ projects: [...] }` 반환, 훅이 `SlideProject[]` 기대 | 각각 개별 검증하면 정상, 교차 비교 안 함 |
-| API 응답 필드명 → 타입 정의 | API가 `thumbnailUrl`(camelCase), 타입이 `thumbnail_url`(snake_case) | TypeScript 제네릭으로 캐스팅하면 컴파일러가 못 잡음 |
-| 파일 경로 → 링크 href | 페이지가 `/dashboard/create`에 있는데 링크가 `/create`로 지정 | 파일 구조와 href를 교차 비교하지 않음 |
-| 상태 전이 맵 → 실제 status 업데이트 | 맵에 `generating_template → template_approved` 정의, 코드에서 전환 누락 | 맵 존재 확인만 하고, 모든 업데이트 코드를 추적하지 않음 |
-| API 엔드포인트 → 프론트 훅 | API 존재하지만 대응 훅 없음 (호출 안 됨) | API 목록과 훅 목록을 1:1 매핑하지 않음 |
-| 즉시 응답 → 비동기 결과 | API가 즉시 `{ status }` 반환, 프론트가 `data.failedIndices` 접근 | 동기/비동기 응답 구분 없이 타입만 확인 |
-
-### 1-2. 왜 정적 코드 리뷰로 못 잡나
-
-- **TypeScript 제네릭의 한계**: `fetchJson<SlideProject[]>()` — 런타임 응답이 `{ projects: [...] }`여도 컴파일 통과
-- **`npm run build` 통과 ≠ 정상 동작**: 타입 캐스팅, `any`, 제네릭이 사용되면 빌드는 성공하지만 런타임에 실패
-- **존재 검증 vs 연결 검증의 차이**: "API가 있는가?"와 "API의 응답이 호출측의 기대와 일치하는가?"는 전혀 다른 검증
+1. QA 智能体遗漏的缺陷模式
+2. 集成一致性验证 (Integration Coherence Verification)
+3. QA 智能体设计原则
+4. 验证检查清单模板
+5. QA 智能体定义模板
 
 ---
 
-## 2. 통합 정합성 검증 (Integration Coherence Verification)
+## 1. QA 智能体遗漏的缺陷模式
 
-QA 에이전트에 반드시 포함해야 하는 **교차 비교 검증** 영역.
+### 1-1. 边界不匹配 (Boundary Mismatch)
 
-### 2-1. API 응답 ↔ 프론트 훅 타입 교차 검증
+最常见的缺陷。两个组件各自"正确"实现，但连接点的契约不一致。
 
-**방법**: 각 API route의 `NextResponse.json()` 호출부와 대응 훅의 `fetchJson<T>` 타입 파라미터를 비교.
+| 边界 | 不匹配示例 | 遗漏原因 |
+|------|-----------|----------|
+| API 响应 → 前端 Hook | API 返回 `{ projects: [...] }`，Hook 期望 `SlideProject[]` | 各自单独验证正常，不进行交叉比对 |
+| API 响应字段名 → 类型定义 | API 使用 `thumbnailUrl`(camelCase)，类型使用 `thumbnail_url`(snake_case) | TypeScript 泛型类型转换后编译器无法检测 |
+| 文件路径 → 链接 href | 页面在 `/dashboard/create`，链接却指向 `/create` | 不交叉比对文件结构与 href |
+| 状态转换映射 → 实际 status 更新 | 映射定义了 `generating_template → template_approved`，代码中缺少转换 | 仅确认映射存在，不追踪所有更新代码 |
+| API 端点 → 前端 Hook | API 存在但无对应 Hook (未被调用) | 不将 API 列表与 Hook 列表进行 1:1 映射 |
+| 即时响应 → 异步结果 | API 即时返回 `{ status }`，前端访问 `data.failedIndices` | 不区分同步/异步响应，仅检查类型 |
 
-```
-검증 단계:
-1. API route에서 NextResponse.json()에 전달하는 객체의 shape 추출
-2. 대응 훅에서 fetchJson<T>의 T 타입 확인
-3. shape과 T가 일치하는지 비교
-4. 래핑 여부 확인 (API가 { data: [...] }를 반환하면 훅이 .data를 꺼내는지)
-```
+### 1-2. 为什么静态代码审查无法捕获
 
-**특히 주의할 패턴:**
-- 페이지네이션 API: `{ items: [], total, page }` vs 프론트가 배열 기대
-- snake_case DB 필드 → camelCase API 응답 → 프론트 타입 정의 간 불일치
-- 즉시 응답 (202 Accepted) vs 최종 결과의 shape 차이
+- **TypeScript 泛型的局限**: `fetchJson<SlideProject[]>()` — 即使运行时响应是 `{ projects: [...] }` 也能通过编译
+- **`npm run build` 通过 ≠ 正常运行**: 使用了类型转换、`any`、泛型时构建成功但运行时失败
+- **存在验证 vs 连接验证的区别**: "API 是否存在？" 与 "API 的响应是否符合调用方的期望？" 是完全不同的验证
 
-### 2-2. 파일 경로 ↔ 링크/라우터 경로 매핑
+---
 
-**방법**: `src/app/` 하위 page 파일의 URL 경로를 추출하고, 코드 내 모든 `href`, `router.push()`, `redirect()` 값과 대조.
+## 2. 集成一致性验证 (Integration Coherence Verification)
 
-```
-검증 단계:
-1. src/app/ 하위 page.tsx 파일 경로에서 URL 패턴 추출
-   - (group) → URL에서 제거
-   - [param] → 동적 세그먼트
-2. 코드 내 모든 href=, router.push(, redirect( 값 수집
-3. 각 링크가 실제 존재하는 page 경로와 매칭되는지 확인
-4. route group 내부 페이지의 URL 접두사 주의 (예: dashboard/ 하위)
-```
+QA 智能体必须包含的**交叉比对验证**领域。
 
-### 2-3. 상태 전이 완전성 추적
+### 2-1. API 响应 ↔ 前端 Hook 类型交叉验证
 
-**방법**: 코드에서 모든 `status:` 업데이트를 추출하여 상태 전이 맵과 대조.
+**方法**: 比较每个 API route 的 `NextResponse.json()` 调用处与对应 Hook 的 `fetchJson<T>` 类型参数。
 
 ```
-검증 단계:
-1. 상태 전이 맵(STATE_TRANSITIONS)에서 허용된 전이 목록 추출
-2. 모든 API route에서 .update({ status: "..." }) 패턴 검색
-3. 각 전이가 맵에 정의되어 있는지 확인
-4. 맵에 정의된 전이 중 코드에서 실행되지 않는 것 식별 (죽은 전이)
-5. 특히: 중간 상태(예: generating_template)에서 최종 상태(template_approved)로의 전환이 누락되지 않았는지
+验证步骤:
+1. 从 API route 的 NextResponse.json() 中提取传入对象的 shape
+2. 确认对应 Hook 中 fetchJson<T> 的 T 类型
+3. 比较 shape 与 T 是否一致
+4. 确认包装处理 (如果 API 返回 { data: [...] }，Hook 是否提取了 .data)
 ```
 
-### 2-4. API 엔드포인트 ↔ 프론트 훅 1:1 매핑
+**特别注意的模式:**
+- 分页 API: `{ items: [], total, page }` vs 前端期望数组
+- snake_case DB 字段 → camelCase API 响应 → 前端类型定义之间的不一致
+- 即时响应 (202 Accepted) vs 最终结果的 shape 差异
 
-**방법**: 모든 API route와 프론트 훅을 나열하여 짝이 맞는지 확인.
+### 2-2. 文件路径 ↔ 链接/路由路径映射
+
+**方法**: 从 `src/app/` 下的 page 文件提取 URL 路径，与代码中所有 `href`、`router.push()`、`redirect()` 值进行对照。
 
 ```
-검증 단계:
-1. src/app/api/ 하위 route.ts에서 HTTP 메서드별 엔드포인트 목록 추출
-2. src/hooks/ 하위 use*.ts에서 fetch 호출 URL 목록 추출
-3. API 엔드포인트 중 훅에서 호출하지 않는 것 식별 → "사용 안 됨" 플래그
-4. "사용 안 됨"이 의도적인지 (관리 API 등) 아닌지 (호출 누락) 판단
+验证步骤:
+1. 从 src/app/ 下的 page.tsx 文件路径中提取 URL 模式
+   - (group) → URL 中移除
+   - [param] → 动态段
+2. 收集代码中所有 href=, router.push(, redirect( 值
+3. 确认每个链接是否匹配实际存在的 page 路径
+4. 注意 route group 内页面的 URL 前缀 (如 dashboard/ 下)
+```
+
+### 2-3. 状态转换完整性追踪
+
+**方法**: 从代码中提取所有 `status:` 更新，与状态转换映射进行对照。
+
+```
+验证步骤:
+1. 从状态转换映射 (STATE_TRANSITIONS) 中提取允许的转换列表
+2. 在所有 API route 中搜索 .update({ status: "..." }) 模式
+3. 确认每个转换是否在映射中定义
+4. 识别映射中定义但代码中未执行的转换 (死转换)
+5. 特别注意: 中间状态 (如 generating_template) 到最终状态 (template_approved) 的转换是否遗漏
+```
+
+### 2-4. API 端点 ↔ 前端 Hook 1:1 映射
+
+**方法**: 列出所有 API route 和前端 Hook，确认配对情况。
+
+```
+验证步骤:
+1. 从 src/app/api/ 下的 route.ts 中按 HTTP 方法提取端点列表
+2. 从 src/hooks/ 下的 use*.ts 中提取 fetch 调用 URL 列表
+3. 识别 API 端点中 Hook 未调用的部分 → 标记为 "未使用"
+4. 判断 "未使用" 是有意为之 (如管理 API) 还是调用遗漏
 ```
 
 ---
 
-## 3. QA 에이전트 설계 원칙
+## 3. QA 智能体设计原则
 
-### 3-1. Explore 타입이 아닌 general-purpose 타입을 사용하라
+### 3-1. 使用 general-purpose 类型而非 Explore 类型
 
-QA 에이전트가 `Explore` 타입이면 읽기만 가능하다. 하지만 효과적인 QA는:
-- Grep으로 패턴 검색 (모든 `NextResponse.json()` 추출)
-- 스크립트 실행으로 자동 대조 (API shape vs 훅 타입)
-- 필요 시 수정까지 가능
+QA 智能体使用 `Explore` 类型则只能读取。但有效的 QA 需要:
+- 使用 Grep 搜索模式 (提取所有 `NextResponse.json()`)
+- 执行脚本进行自动对照 (API shape vs Hook 类型)
+- 必要时还能修改
 
-**권장**: `general-purpose` 타입으로 설정하되, 에이전트 정의에서 "검증 → 리포트 → 수정 요청" 프로토콜을 명시.
+**推荐**: 设置为 `general-purpose` 类型，在智能体定义中明确 "验证 → 报告 → 修改请求" 协议。
 
-### 3-2. 체크리스트는 "존재 확인"보다 "교차 비교"를 우선하라
+### 3-2. 检查清单应优先 "交叉比对" 而非 "存在确认"
 
-| 약한 체크리스트 | 강한 체크리스트 |
-|---------------|---------------|
-| API 엔드포인트가 존재하는가? | API 엔드포인트의 응답 shape과 대응 훅의 타입이 일치하는가? |
-| 상태 전이 맵이 정의되어 있는가? | 모든 status 업데이트 코드가 맵의 전이와 일치하는가? |
-| 페이지 파일이 존재하는가? | 코드 내 모든 링크가 실제 존재하는 페이지를 가리키는가? |
-| TypeScript strict mode인가? | 제네릭 캐스팅으로 우회된 타입 안전성이 없는가? |
+| 弱检查清单 | 强检查清单 |
+|-----------|-----------|
+| API 端点是否存在？ | API 端点的响应 shape 与对应 Hook 的类型是否一致？ |
+| 状态转换映射是否已定义？ | 所有 status 更新代码是否与映射中的转换一致？ |
+| 页面文件是否存在？ | 代码中所有链接是否指向实际存在的页面？ |
+| 是否使用 TypeScript strict mode？ | 是否存在通过泛型转换绕过的类型安全？ |
 
-### 3-3. "양쪽을 동시에 읽어라" 원칙
+### 3-3. "同时读取两边" 原则
 
-QA가 경계면 버그를 잡으려면, 한쪽만 읽어선 안 된다. 반드시:
-- API route **와** 대응 훅을 **같이** 읽고
-- 상태 전이 맵 **와** 실제 업데이트 코드를 **같이** 읽고
-- 파일 구조 **와** 링크 경로를 **같이** 읽어야 한다
+QA 要捕获边界 Bug，不能只读一边。必须:
+- 同时读取 API route **和** 对应 Hook
+- 同时读取状态转换映射 **和** 实际更新代码
+- 同时读取文件结构 **和** 链接路径
 
-에이전트 정의에 이 원칙을 명시적으로 기재하라.
+在智能体定义中明确记载此原则。
 
-### 3-4. QA는 빌드 후가 아니라, 각 모듈 완성 직후에 실행하라
+### 3-4. QA 应在每个模块完成后立即执行，而非构建完成后
 
-오케스트레이터에서 QA를 "Phase 4: 전체 완성 후"에만 배치하면:
-- 버그가 누적되어 수정 비용이 높아짐
-- 초기 경계면 불일치가 후속 모듈에 전파됨
+如果编排器将 QA 仅放在 "Phase 4: 全部完成后":
+- Bug 累积导致修复成本升高
+- 初期边界不一致传播到后续模块
 
-**권장 패턴**: 각 백엔드 API 완성 시 즉시 해당 API + 대응 훅의 교차 검증 수행 (incremental QA).
+**推荐模式**: 每个后端 API 完成时立即进行该 API + 对应 Hook 的交叉验证 (增量 QA)。
 
 ---
 
-## 4. 검증 체크리스트 템플릿
+## 4. 验证检查清单模板
 
-QA 에이전트 정의에 포함할 웹 애플리케이션용 통합 정합성 체크리스트.
+包含在 QA 智能体定义中的 Web 应用集成一致性检查清单。
 
 ```markdown
-### 통합 정합성 검증 (웹 앱)
+### 集成一致性验证 (Web 应用)
 
-#### API ↔ 프론트엔드 연결
-- [ ] 모든 API route의 응답 shape과 대응 훅의 제네릭 타입이 일치
-- [ ] 래핑된 응답({ items: [...] })은 훅에서 unwrap하는지 확인
-- [ ] snake_case ↔ camelCase 변환이 일관되게 적용
-- [ ] 즉시 응답(202)과 최종 결과의 shape이 프론트에서 구분되는지 확인
-- [ ] 모든 API 엔드포인트에 대응하는 프론트 훅이 존재하고 실제로 호출됨
+#### API ↔ 前端连接
+- [ ] 所有 API route 的响应 shape 与对应 Hook 的泛型类型一致
+- [ ] 包装响应 ({ items: [...] }) 确认 Hook 中进行了 unwrap
+- [ ] snake_case ↔ camelCase 转换一致应用
+- [ ] 即时响应 (202) 与最终结果的 shape 在前端有区分
+- [ ] 所有 API 端点都有对应的前端 Hook 且实际被调用
 
-#### 라우팅 정합성
-- [ ] 코드 내 모든 href/router.push 값이 실제 page 파일 경로와 매칭
-- [ ] route group ((group))이 URL에서 제거되는 것을 고려한 경로 검증
-- [ ] 동적 세그먼트([id])가 올바른 파라미터로 채워지는지 확인
+#### 路由一致性
+- [ ] 代码中所有 href/router.push 值匹配实际 page 文件路径
+- [ ] route group ((group)) 在 URL 中被移除已在路径验证中考虑
+- [ ] 动态段 ([id]) 使用正确的参数填充
 
-#### 상태 머신 정합성
-- [ ] 정의된 모든 상태 전이가 코드에서 실행됨 (죽은 전이 없음)
-- [ ] 코드의 모든 status 업데이트가 전이 맵에 정의됨 (무단 전이 없음)
-- [ ] 중간 상태에서 최종 상태로의 전환이 누락되지 않음
-- [ ] 프론트에서 상태 기반 분기(if status === "X")의 X가 실제 도달 가능
+#### 状态机一致性
+- [ ] 定义的所有状态转换在代码中都有执行 (无死转换)
+- [ ] 代码中所有 status 更新都在转换映射中定义 (无未授权转换)
+- [ ] 中间状态到最终状态的转换没有遗漏
+- [ ] 前端基于状态的分支 (if status === "X") 中的 X 实际可达
 
-#### 데이터 흐름 정합성
-- [ ] DB 스키마 필드명과 API 응답 필드명의 매핑이 일관됨
-- [ ] 프론트 타입 정의와 API 응답의 필드명이 일치
-- [ ] 옵셔널 필드에 대한 null/undefined 처리가 양쪽에서 일관됨
+#### 数据流一致性
+- [ ] DB Schema 字段名与 API 响应字段名的映射一致
+- [ ] 前端类型定义与 API 响应的字段名一致
+- [ ] 可选字段的 null/undefined 处理在两边一致
 ```
 
 ---
 
-## 5. QA 에이전트 정의 템플릿
+## 5. QA 智能体定义模板
 
-빌드 하네스의 QA 에이전트에 포함할 핵심 섹션.
+构建 Harness 的 QA 智能体中应包含的核心部分。
 
 ```markdown
 ---
 name: qa-inspector
-description: "QA 검증 전문가. 스펙 준수, 통합 정합성, 디자인 품질을 검증."
+description: "QA 验证专家。验证规格合规性、集成一致性、设计质量。"
 ---
 
 # QA Inspector
 
-## 핵심 역할
-스펙 대비 구현 품질과 **모듈 간 통합 정합성**을 검증한다.
+## 核心角色
+验证规格对比实现质量和**模块间集成一致性**。
 
-## 검증 우선순위
+## 验证优先级
 
-1. **통합 정합성** (가장 높음) — 경계면 불일치가 런타임 에러의 주요 원인
-2. **기능 스펙 준수** — API/상태머신/데이터모델
-3. **디자인 품질** — 색상/타이포/반응형
-4. **코드 품질** — 미사용 코드, 명명 규칙
+1. **集成一致性** (最高) — 边界不一致是运行时错误的主要原因
+2. **功能规格合规性** — API/状态机/数据模型
+3. **设计质量** — 颜色/排版/响应式
+4. **代码质量** — 未使用代码，命名规范
 
-## 검증 방법: "양쪽 동시 읽기"
+## 验证方法: "两边同时读取"
 
-경계면 검증은 반드시 **양쪽 코드를 동시에 열어** 비교한다:
+边界验证必须**同时打开两边代码**进行比较:
 
-| 검증 대상 | 왼쪽 (생산자) | 오른쪽 (소비자) |
-|----------|-------------|---------------|
-| API 응답 shape | route.ts의 NextResponse.json() | hooks/의 fetchJson<T> |
-| 라우팅 | src/app/ page 파일 경로 | href, router.push 값 |
-| 상태 전이 | STATE_TRANSITIONS 맵 | .update({ status }) 코드 |
-| DB → API → UI | 테이블 컬럼명 | API 응답 필드 → 타입 정의 |
+| 验证对象 | 左侧 (生产者) | 右侧 (消费者) |
+|---------|-------------|--------------|
+| API 响应 shape | route.ts 的 NextResponse.json() | hooks/ 的 fetchJson<T> |
+| 路由 | src/app/ page 文件路径 | href, router.push 值 |
+| 状态转换 | STATE_TRANSITIONS 映射 | .update({ status }) 代码 |
+| DB → API → UI | 表格列名 | API 响应字段 → 类型定义 |
 
-## 팀 통신 프로토콜
+## 团队通信协议
 
-- 발견 즉시 해당 에이전트에게 구체적 수정 요청 (파일:라인 + 수정 방법)
-- 경계면 이슈는 양쪽 에이전트 **모두**에게 알림
-- 리더에게: 검증 리포트 (통과/실패/미검증 항목 구분)
+- 发现后立即向相应智能体发送具体修改请求 (文件:行号 + 修改方法)
+- 边界问题通知**双方**智能体
+- 向领导者: 验证报告 (区分通过/失败/未验证项)
 ```
 
 ---
 
-## 실제 사례: SatangSlide에서 발견된 버그
+## 实际案例: SatangSlide 中发现的 Bug
 
-이 가이드의 모든 내용은 아래 실제 버그에서 추출한 교훈이다:
+本指南的所有内容均来自以下实际 Bug 中提取的教训:
 
-| 버그 | 경계면 | 원인 |
-|------|--------|------|
-| `projects?.filter is not a function` | API→훅 | API가 `{projects:[]}` 반환, 훅이 배열 기대 |
-| 대시보드 모든 링크 404 | 파일경로→href | `/dashboard/` 접두사 누락 |
-| 테마 이미지 안 보임 | API→컴포넌트 | `thumbnailUrl` vs `thumbnail_url` |
-| 테마 선택 저장 안 됨 | API→훅 | select-theme API 존재, 훅 없음 |
-| 생성 페이지 영원히 대기 | 상태전이→코드 | `template_approved` 전이 코드 누락 |
-| `data.failedIndices` 크래시 | 즉시응답→프론트 | 백그라운드 결과를 즉시 응답에서 접근 |
-| 완료 후 슬라이드 보기 404 | 파일경로→href | `/projects/` → `/dashboard/projects/` |
+| Bug | 边界 | 原因 |
+|-----|------|------|
+| `projects?.filter is not a function` | API→Hook | API 返回 `{projects:[]}`，Hook 期望数组 |
+| 仪表盘所有链接 404 | 文件路径→href | 缺少 `/dashboard/` 前缀 |
+| 主题图片不显示 | API→组件 | `thumbnailUrl` vs `thumbnail_url` |
+| 主题选择保存无效 | API→Hook | select-theme API 存在，但无 Hook |
+| 生成页面永远等待 | 状态转换→代码 | `template_approved` 转换代码缺失 |
+| `data.failedIndices` 崩溃 | 即时响应→前端 | 在即时响应中访问后台结果 |
+| 完成后查看幻灯片 404 | 文件路径→href | `/projects/` → `/dashboard/projects/` |

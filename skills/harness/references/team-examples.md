@@ -1,328 +1,328 @@
-# Agent Team Examples
+# 智能体团队示例
 
 ---
 
-## 예시 1: 리서치 팀 (에이전트 팀 모드)
+## 示例 1: 研究团队 (智能体团队模式)
 
-### 팀 아키텍처: 팬아웃/팬인
-### 실행 모드: 에이전트 팀
+### 团队架构: 扇出/扇入
+### 执行模式: 智能体团队
 
 ```
-[리더/오케스트레이터]
+[领导者/编排器]
     ├── TeamCreate(research-team)
-    ├── TaskCreate(4개 조사 작업)
-    ├── 팀원들이 자체 조율 (SendMessage)
-    ├── 결과 수집 (Read)
-    └── 종합 보고서 생성
+    ├── TaskCreate(4个调查任务)
+    ├── 成员自主协调 (SendMessage)
+    ├── 结果收集 (Read)
+    └── 生成综合报告
 ```
 
-### 에이전트 구성
+### 智能体配置
 
-| 팀원 | 에이전트 타입 | 역할 | 출력 |
-|------|-------------|------|------|
-| official-researcher | general-purpose | 공식 문서/블로그 | research_official.md |
-| media-researcher | general-purpose | 미디어/투자 | research_media.md |
-| community-researcher | general-purpose | 커뮤니티/SNS | research_community.md |
-| background-researcher | general-purpose | 배경/경쟁/학술 | research_background.md |
-| (리더 = 오케스트레이터) | — | 통합 보고서 | 종합보고서.md |
+| 成员 | 智能体类型 | 角色 | 输出 |
+|------|-----------|------|------|
+| official-researcher | general-purpose | 官方文档/博客 | research_official.md |
+| media-researcher | general-purpose | 媒体/投资 | research_media.md |
+| community-researcher | general-purpose | 社区/SNS | research_community.md |
+| background-researcher | general-purpose | 背景/竞争/学术 | research_background.md |
+| (领导者 = 编排器) | — | 整合报告 | 综合报告.md |
 
-> 리서치 에이전트는 `general-purpose` 빌트인 타입을 사용하되, 반드시 `.claude/agents/{name}.md` 파일로 정의한다. 파일에는 역할·조사 범위·팀 통신 프로토콜을 명시하여 재사용성과 협업 품질을 보장한다.
+> 研究智能体使用 `general-purpose` 内置类型，但必须通过 `.claude/agents/{name}.md` 文件定义。文件中明确角色·调查范围·团队通信协议以保证复用性和协作质量。
 
-### 오케스트레이터 워크플로우 (에이전트 팀)
+### 编排器工作流 (智能体团队)
 
 ```
-Phase 1: 준비
-  - 사용자 입력 분석 (주제, 조사 모드 파악)
-  - _workspace/ 생성
+Phase 1: 准备
+  - 分析用户输入 (主题，调查模式)
+  - 创建 _workspace/
 
-Phase 2: 팀 구성
+Phase 2: 团队组建
   - TeamCreate(team_name: "research-team", members: [
-      { name: "official", prompt: "공식 채널 조사..." },
-      { name: "media", prompt: "미디어/투자 동향 조사..." },
-      { name: "community", prompt: "커뮤니티 반응 조사..." },
-      { name: "background", prompt: "배경/경쟁 환경 조사..." }
+      { name: "official", prompt: "调查官方渠道..." },
+      { name: "media", prompt: "调查媒体/投资动向..." },
+      { name: "community", prompt: "调查社区反应..." },
+      { name: "background", prompt: "调查背景/竞争环境..." }
     ])
   - TaskCreate(tasks: [
-      { title: "공식 채널 조사", assignee: "official" },
-      { title: "미디어 동향 조사", assignee: "media" },
-      { title: "커뮤니티 반응 조사", assignee: "community" },
-      { title: "배경 환경 조사", assignee: "background" }
+      { title: "调查官方渠道", assignee: "official" },
+      { title: "调查媒体动向", assignee: "media" },
+      { title: "调查社区反应", assignee: "community" },
+      { title: "调查背景环境", assignee: "background" }
     ])
 
-Phase 3: 조사 수행
-  - 4명의 팀원이 독립적으로 조사
-  - 흥미로운 발견이 있으면 팀원 간 SendMessage로 공유
-    (예: media가 발견한 투자 뉴스를 background에게 전달)
-  - 상충 정보 발견 시 팀원 간 직접 토론
-  - 각 팀원은 완료 시 파일 저장 + 리더에게 알림
+Phase 3: 执行调查
+  - 4名成员独立进行调查
+  - 发现有趣内容时通过 SendMessage 在成员间共享
+    (例如: media 发现的投资新闻传递给 background)
+  - 发现冲突信息时成员之间直接讨论
+  - 各成员完成时保存文件并通知领导者
 
-Phase 4: 통합
-  - 리더가 4개 산출물 Read
-  - 종합 보고서 생성
-  - 상충 정보는 출처 병기
+Phase 4: 整合
+  - 领导者通过 Read 读取4份产出物
+  - 生成综合报告
+  - 冲突信息标明来源并列记录
 
-Phase 5: 정리
-  - 팀원들 종료 요청
-  - 팀 정리
-  - _workspace/ 보존 (사후 검증·감사 추적용)
+Phase 5: 清理
+  - 请求成员终止
+  - 清理团队
+  - 保留 _workspace/ (用于事后验证·审计追踪)
 ```
 
-### 팀 통신 패턴
+### 团队通信模式
 
 ```
-official ──SendMessage──→ background  (관련 공식 발표 공유)
-media ────SendMessage──→ background  (투자/인수 정보 공유)
-community ─SendMessage──→ media      (커뮤니티 반응 중 미디어 관련 정보)
-모든 팀원 ──TaskUpdate──→ 공유 작업 목록  (진행률 업데이트)
-리더 ←───── 유휴 알림 ──── 완료된 팀원   (자동)
+official ──SendMessage──→ background  (共享相关官方公告)
+media ────SendMessage──→ background  (共享投资/收购信息)
+community ─SendMessage──→ media      (社区反应中与媒体相关的信息)
+所有成员 ──TaskUpdate──→ 共享任务列表  (更新进度)
+领导者 ←───── 空闲通知 ──── 完成的成员   (自动)
 ```
 
 ---
 
-## 예시 2: SF 소설 집필 팀 (에이전트 팀 모드)
+## 示例 2: SF 小说写作团队 (智能体团队模式)
 
-### 팀 아키텍처: 파이프라인 + 팬아웃
-### 실행 모드: 에이전트 팀
+### 团队架构: 流水线 + 扇出
+### 执行模式: 智能体团队
 
 ```
-Phase 1 (병렬 — 에이전트 팀): worldbuilder + character-designer + plot-architect
-  → 서로 SendMessage로 일관성 조율
-Phase 2 (순차): prose-stylist (집필)
-Phase 3 (병렬 — 에이전트 팀): science-consultant + continuity-manager (리뷰)
-  → 서로 SendMessage로 발견 공유
-Phase 4 (순차): prose-stylist (리뷰 반영 수정)
+Phase 1 (并行 — 智能体团队): worldbuilder + character-designer + plot-architect
+  → 通过 SendMessage 互相协调一致性
+Phase 2 (顺序): prose-stylist (撰写)
+Phase 3 (并行 — 智能体团队): science-consultant + continuity-manager (审阅)
+  → 通过 SendMessage 互相共享发现
+Phase 4 (顺序): prose-stylist (反映审阅修改)
 ```
 
-### 에이전트 구성
+### 智能体配置
 
-| 팀원 | 에이전트 타입 | 역할 | 스킬 |
-|------|-------------|------|------|
-| worldbuilder | 커스텀 | 세계관 구축 | world-setting |
-| character-designer | 커스텀 | 캐릭터 설계 | character-profile |
-| plot-architect | 커스텀 | 플롯 구조 | outline |
-| prose-stylist | 커스텀 | 문체 편집 + 집필 | write-scene, review-chapter |
-| science-consultant | 커스텀 | 과학 검증 | science-check |
-| continuity-manager | 커스텀 | 일관성 검증 | consistency-check |
+| 成员 | 智能体类型 | 角色 | 技能 |
+|------|-----------|------|------|
+| worldbuilder | 自定义 | 世界观构建 | world-setting |
+| character-designer | 自定义 | 角色设计 | character-profile |
+| plot-architect | 自定义 | 情节结构 | outline |
+| prose-stylist | 自定义 | 文体编辑 + 撰写 | write-scene, review-chapter |
+| science-consultant | 自定义 | 科学验证 | science-check |
+| continuity-manager | 自定义 | 一致性验证 | consistency-check |
 
-### 에이전트 파일 전문 예시: `worldbuilder.md`
+### 智能体文件完整示例: `worldbuilder.md`
 
 ```markdown
 ---
 name: worldbuilder
-description: "SF 소설의 세계관을 구축하는 전문가. 물리 법칙, 사회 구조, 기술 수준, 역사를 설계한다."
+description: "构建 SF 小说世界观的专家。设计物理法则、社会结构、技术水平、历史。"
 ---
 
-# Worldbuilder — SF 세계관 설계 전문가
+# Worldbuilder — SF 世界观设计专家
 
-당신은 SF 소설의 세계관 설계 전문가입니다. 과학적 사실에 기반하되 상상력을 확장하여, 이야기가 펼쳐질 세계의 물리적·사회적·기술적 토대를 구축합니다.
+你是 SF 小说世界观设计专家。基于科学事实发挥想象力，构建故事展开世界的物理·社会·技术基础。
 
-## 핵심 역할
-1. 세계의 물리 법칙과 기술 수준 정의
-2. 사회 구조, 정치 체계, 경제 시스템 설계
-3. 역사적 맥락과 현재 갈등 구조 수립
-4. 장소별 환경과 분위기 묘사
+## 核心角色
+1. 定义世界的物理法则和技术水平
+2. 设计社会结构、政治体系、经济系统
+3. 确立历史脉络和当前冲突结构
+4. 描述各地点的环境和氛围
 
-## 작업 원칙
-- 내적 일관성 최우선 — 설정 간 모순이 없어야 한다
-- "만약 이 기술이 있다면?" 연쇄 질문으로 세계의 파급 효과를 추론
-- 이야기에 봉사하는 세계관 — 플롯을 방해하는 과도한 설정은 지양
+## 工作原则
+- 内部一致性最优先 — 设定之间不能有矛盾
+- 通过 "如果存在这种技术？" 的连锁问题推演世界的影响
+- 服务于故事的世界观 — 避免阻碍情节的过度设定
 
-## 입력/출력 프로토콜
-- 입력: 사용자의 세계관 컨셉, 장르 요구사항
-- 출력: `_workspace/01_worldbuilder_setting.md`
-- 형식: 마크다운. 섹션별 (물리/사회/기술/역사/장소)
+## 输入/输出协议
+- 输入: 用户的世界观概念，体裁要求
+- 输出: `_workspace/01_worldbuilder_setting.md`
+- 格式: Markdown。按章节划分 (物理/社会/技术/历史/地点)
 
-## 팀 통신 프로토콜
-- character-designer에게: 사회 구조, 계급 시스템, 직업군 정보 SendMessage
-- plot-architect에게: 세계의 주요 갈등 구조, 위기 요소 SendMessage
-- science-consultant로부터: 과학적 오류 피드백 수신 → 설정 수정
-- 세계관 변경 시 관련 팀원 전체에 브로드캐스트
+## 团队通信协议
+- 向 character-designer: 通过 SendMessage 发送社会结构、阶级系统、职业群信息
+- 向 plot-architect: 通过 SendMessage 发送世界的主要冲突结构、危机要素
+- 从 science-consultant: 接收科学错误反馈 → 修改设定
+- 世界观变更时向所有相关成员广播
 
-## 에러 핸들링
-- 컨셉이 모호하면 3가지 방향을 제안하고 선택 요청
-- 과학적 오류 발견 시 대안을 함께 제시
+## 错误处理
+- 概念模糊时提出3个方向并请求选择
+- 发现科学错误时同时提供替代方案
 
-## 협업
-- character-designer에게 사회 구조 정보 제공
-- plot-architect에게 갈등 구조 정보 제공
-- science-consultant의 피드백을 반영하여 설정 수정
+## 协作
+- 向 character-designer 提供社会结构信息
+- 向 plot-architect 提供冲突结构信息
+- 反映 science-consultant 的反馈修改设定
 ```
 
-### 팀 워크플로우 상세
+### 团队工作流详情
 
 ```
 Phase 1: TeamCreate(team_name: "novel-team", members: [worldbuilder, character-designer, plot-architect])
-         TaskCreate([세계관 구축, 캐릭터 설계, 플롯 구조])
-         → 팀원들이 자체 조율하며 병렬 작업
-         → worldbuilder가 사회 구조 완성 시 character-designer에게 SendMessage
-         → character-designer가 주인공 설정 시 plot-architect에게 SendMessage
+         TaskCreate([世界观构建, 角色设计, 情节结构])
+         → 成员自主协调并行工作
+         → worldbuilder 完成社会结构时 SendMessage 给 character-designer
+         → character-designer 设定主角时 SendMessage 给 plot-architect
 
-Phase 2: Phase 1 팀 정리 → prose-stylist를 서브 에이전트로 호출 (단독 집필이므로 팀 불필요)
-         prose-stylist가 _workspace/의 3개 산출물을 Read하여 집필
-         → 결과를 _workspace/02_prose_draft.md에 저장
+Phase 2: 清理 Phase 1 团队 → 以子智能体调用 prose-stylist (独立撰写无需团队)
+         prose-stylist 通过 Read 读取 _workspace/ 的3份产出物并撰写
+         → 结果保存到 _workspace/02_prose_draft.md
 
-Phase 3: 새 팀 생성 — TeamCreate(team_name: "review-team", members: [science-consultant, continuity-manager])
-         (세션당 한 팀만 활성이지만, Phase 1 팀을 정리했으므로 새 팀 생성 가능)
-         → 두 리뷰어가 draft를 검토, 서로 발견을 공유
-         → science-consultant가 물리 오류 발견 시 continuity-manager에게도 알림
-         → 리뷰 완료 후 팀 정리
+Phase 3: 创建新团队 — TeamCreate(team_name: "review-team", members: [science-consultant, continuity-manager])
+         (每会话只能激活一个团队，但 Phase 1 团队已清理，可以创建新团队)
+         → 两位审阅者审阅 draft，互相共享发现
+         → science-consultant 发现物理错误时也通知 continuity-manager
+         → 审阅完成后清理团队
 
-Phase 4: prose-stylist를 서브 에이전트로 호출, 리뷰 결과 반영하여 최종 수정
+Phase 4: 以子智能体调用 prose-stylist，反映审阅结果进行最终修改
 ```
 
 ---
 
-## 예시 3: 웹툰 제작 팀 (서브 에이전트 모드)
+## 示例 3: 网络漫画制作团队 (子智能体模式)
 
-### 팀 아키텍처: 생성-검증
-### 실행 모드: 서브 에이전트
+### 团队架构: 生成-验证
+### 执行模式: 子智能体
 
-> 생성-검증 패턴에서 에이전트가 2개뿐이고, 통신보다는 결과 전달이 핵심이므로 서브 에이전트가 적합.
+> 生成-验证模式中只有2个智能体，且核心是结果传递而非通信，因此子智能体更适合。
 
 ```
-Phase 1: Agent(webtoon-artist) → 패널 생성
-Phase 2: Agent(webtoon-reviewer) → 검수
-Phase 3: Agent(webtoon-artist) → 문제 패널 재생성 (최대 2회)
+Phase 1: Agent(webtoon-artist) → 生成面板
+Phase 2: Agent(webtoon-reviewer) → 审核
+Phase 3: Agent(webtoon-artist) → 问题面板重新生成 (最多2次)
 ```
 
-### 에이전트 구성
+### 智能体配置
 
-| 에이전트 | subagent_type | 역할 | 스킬 |
-|---------|--------------|------|------|
-| webtoon-artist | 커스텀 | 패널 이미지 생성 | generate-webtoon |
-| webtoon-reviewer | 커스텀 | 품질 검수 | review-webtoon, fix-webtoon-panel |
+| 智能体 | subagent_type | 角色 | 技能 |
+|--------|--------------|------|------|
+| webtoon-artist | 自定义 | 面板图片生成 | generate-webtoon |
+| webtoon-reviewer | 自定义 | 质量审核 | review-webtoon, fix-webtoon-panel |
 
-### 에이전트 파일 전문 예시: `webtoon-reviewer.md`
+### 智能体文件完整示例: `webtoon-reviewer.md`
 
 ```markdown
 ---
 name: webtoon-reviewer
-description: "웹툰 패널의 품질을 검수하는 전문가. 구도, 캐릭터 일관성, 텍스트 가독성, 연출을 평가한다."
+description: "审核网络漫画面板质量的专家。评估构图、角色一致性、文字可读性、演出效果。"
 ---
 
-# Webtoon Reviewer — 웹툰 품질 검수 전문가
+# Webtoon Reviewer — 网络漫画质量审核专家
 
-당신은 웹툰 패널의 품질을 검수하는 전문가입니다. 시각적 완성도, 스토리 전달력, 캐릭터 일관성을 기준으로 패널을 평가합니다.
+你是审核网络漫画面板质量的专家。以视觉完成度、故事传达力、角色一致性为标准评估面板。
 
-## 핵심 역할
-1. 각 패널의 구도와 시각적 완성도 평가
-2. 캐릭터 외형의 패널 간 일관성 검증
-3. 말풍선 텍스트의 가독성과 배치 평가
-4. 전체 에피소드의 연출 흐름과 페이싱 검토
+## 核心角色
+1. 评估每个面板的构图和视觉完成度
+2. 验证角色外形在面板间的一致性
+3. 评估气泡文字的可读性和布局
+4. 审视整集的演出节奏和步调
 
-## 작업 원칙
-- PASS/FIX/REDO 3단계로 명확히 판정
-- FIX는 부분 수정으로 해결 가능한 경우, REDO는 전면 재생성 필요
-- 주관적 취향이 아닌 객관적 기준(일관성, 가독성, 구도)으로 판단
+## 工作原则
+- 以 PASS/FIX/REDO 三级明确判定
+- FIX 是可通过部分修改解决的情况，REDO 是需要全面重新生成
+- 以客观标准 (一致性、可读性、构图) 判断而非主观喜好
 
-## 입력/출력 프로토콜
-- 입력: `_workspace/panels/` 디렉토리의 패널 이미지들
-- 출력: `_workspace/review_report.md`
-- 형식:
+## 输入/输出协议
+- 输入: `_workspace/panels/` 目录中的面板图片
+- 输出: `_workspace/review_report.md`
+- 格式:
   ```
   ## Panel {N}
-  - 판정: PASS | FIX | REDO
-  - 사유: [구체적 이유]
-  - 수정 지시: [FIX/REDO인 경우 구체적 수정 방향]
+  - 判定: PASS | FIX | REDO
+  - 原因: [具体理由]
+  - 修改指示: [FIX/REDO 时给出具体修改方向]
   ```
 
-## 에러 핸들링
-- 이미지 로드 실패 시 해당 패널을 REDO로 판정
-- 2회 재생성 후에도 REDO인 패널은 경고와 함께 PASS 처리
+## 错误处理
+- 图片加载失败时判定该面板为 REDO
+- 2次重新生成后仍为 REDO 的面板附上警告后按 PASS 处理
 
-## 협업
-- webtoon-artist에게 수정 지시서 전달 (결과 파일 기반)
-- 재생성된 패널을 다시 검수 (최대 2회 루프)
+## 协作
+- 向 webtoon-artist 传递修改指示书 (基于结果文件)
+- 再次审核重新生成的面板 (最多2次循环)
 ```
 
-### 에러 핸들링
+### 错误处理
 
 ```
-재시도 정책:
-- REDO 판정 패널 → artist에게 재생성 요청 (구체적 수정 지시 포함)
-- 최대 2회 루프 후 강제 PASS
-- 전체 패널의 50% 이상이 REDO면 사용자에게 프롬프트 수정 제안
+重试策略:
+- REDO 判定面板 → 向 artist 请求重新生成 (包含具体修改指示)
+- 最多2次循环后强制 PASS
+- 超过50%的面板为 REDO 时向用户建议修改提示词
 ```
 
 ---
 
-## 예시 4: 코드 리뷰 팀 (에이전트 팀 모드)
+## 示例 4: 代码审查团队 (智能体团队模式)
 
-### 팀 아키텍처: 팬아웃/팬인 + 토론
-### 실행 모드: 에이전트 팀
+### 团队架构: 扇出/扇入 + 讨论
+### 执行模式: 智能体团队
 
-> 코드 리뷰는 에이전트 팀이 빛나는 대표적 사례. 서로 다른 관점의 리뷰어들이 발견을 공유하고 도전하면서 더 깊은 리뷰가 가능.
-
-```
-[리더] → TeamCreate(review-team)
-    ├── security-reviewer: 보안 취약점 점검
-    ├── performance-reviewer: 성능 영향 분석
-    └── test-reviewer: 테스트 커버리지 검증
-    → 리뷰어들이 서로 발견 공유 (SendMessage)
-    → 리더가 결과 종합
-```
-
-### 팀 통신 패턴
+> 代码审查是智能体团队大放异彩的典型案例。不同视角的审阅者共享发现并互相质疑，实现更深入的审查。
 
 ```
-security ──SendMessage──→ performance  ("이 SQL 쿼리 주입 가능, 성능 측면에서도 확인 필요")
-performance ──SendMessage──→ test      ("N+1 쿼리 발견, 관련 테스트 있는지 확인 부탁")
-test ────SendMessage──→ security      ("인증 모듈 테스트 없음, 보안 관점에서 우선순위 의견?")
+[领导者] → TeamCreate(review-team)
+    ├── security-reviewer: 安全漏洞检查
+    ├── performance-reviewer: 性能影响分析
+    └── test-reviewer: 测试覆盖率验证
+    → 审阅者互相共享发现 (SendMessage)
+    → 领导者综合结果
 ```
 
-핵심: 리뷰어들이 **리더를 거치지 않고** 직접 소통하여 교차 영역 이슈를 빠르게 포착.
+### 团队通信模式
+
+```
+security ──SendMessage──→ performance  ("此 SQL 查询可能存在注入，请从性能角度也确认一下")
+performance ──SendMessage──→ test      ("发现 N+1 查询，请确认是否有相关测试")
+test ────SendMessage──→ security      ("认证模块无测试，从安全角度看优先级如何？")
+```
+
+核心: 审阅者**不经过领导者**直接沟通，快速捕获跨领域问题。
 
 ---
 
-## 예시 5: 감독자 패턴 — 코드 마이그레이션 팀 (에이전트 팀 모드)
+## 示例 5: 监督者模式 — 代码迁移团队 (智能体团队模式)
 
-### 팀 아키텍처: 감독자
-### 실행 모드: 에이전트 팀
+### 团队架构: 监督者
+### 执行模式: 智能体团队
 
 ```
-[supervisor/리더] → 파일 목록 분석 → 배치 할당
-    ├→ [migrator-1] (batch A)
-    ├→ [migrator-2] (batch B)
-    └→ [migrator-3] (batch C)
-    ← TaskUpdate 수신 → 추가 배치 할당 또는 재할당
+[supervisor/领导者] → 分析文件列表 → 分配批次
+    ├→ [migrator-1] (批次 A)
+    ├→ [migrator-2] (批次 B)
+    └→ [migrator-3] (批次 C)
+    ← 接收 TaskUpdate → 额外批次分配或重新分配
 ```
 
-### 에이전트 구성
+### 智能体配置
 
-| 팀원 | 역할 |
+| 成员 | 角色 |
 |------|------|
-| (리더 = migration-supervisor) | 파일 분석, 배치 분배, 진행 관리 |
-| migrator-1~3 | 할당된 파일 배치를 마이그레이션 |
+| (领导者 = migration-supervisor) | 文件分析，批次分配，进度管理 |
+| migrator-1~3 | 迁移分配的文件批次 |
 
-### 감독자의 동적 분배 로직 (에이전트 팀 활용)
+### 监督者的动态分配逻辑 (利用智能体团队)
 
 ```
-1. 전체 대상 파일 목록 수집
-2. 복잡도 추정 (파일 크기, import 수, 의존성)
-3. TaskCreate로 파일 배치를 작업으로 등록 (의존성 포함)
-4. 팀원들이 자체적으로 작업 요청 (claim)
-5. 팀원이 TaskUpdate로 완료 보고 시:
-   - 성공 → 다음 작업 자동 요청
-   - 실패 → 리더가 SendMessage로 원인 확인 → 재할당 또는 다른 팀원에게 배정
-6. 모든 작업 완료 → 리더가 통합 테스트 실행
+1. 收集全部目标文件列表
+2. 估算复杂度 (文件大小，import 数量，依赖关系)
+3. 通过 TaskCreate 将文件批次注册为任务 (包含依赖关系)
+4. 成员自行认领 (claim) 任务
+5. 成员通过 TaskUpdate 报告完成时:
+   - 成功 → 自动认领下一个任务
+   - 失败 → 领导者通过 SendMessage 确认原因 → 重新分配或分配给其他成员
+6. 所有任务完成 → 领导者执行集成测试
 ```
 
-팬아웃과의 차이: 작업이 사전 고정이 아니라 **런타임에 동적으로 할당**된다. 공유 작업 목록의 자체 요청(claim) 기능이 감독자 패턴과 자연스럽게 매칭.
+与扇出的区别: 任务不是预先固定的，而是在**运行时动态分配**。共享任务列表的自行认领 (claim) 功能与监督者模式自然匹配。
 
 ---
 
-## 산출물 패턴 요약
+## 产出物模式总结
 
-### 에이전트 정의 파일
-위치: `프로젝트/.claude/agents/{agent-name}.md`
-필수 섹션: 핵심 역할, 작업 원칙, 입력/출력 프로토콜, 에러 핸들링, 협업
-팀 모드 추가 섹션: **팀 통신 프로토콜** (메시지 수신/발신, 작업 요청 범위)
+### 智能体定义文件
+位置: `项目/.claude/agents/{agent-name}.md`
+必需部分: 核心角色，工作原则，输入/输出协议，错误处理，协作
+团队模式追加部分: **团队通信协议** (消息接收/发送，任务请求范围)
 
-### 스킬 파일 구조
-위치: `프로젝트/.claude/skills/{skill-name}/SKILL.md` (프로젝트 레벨)
-또는: `~/.claude/skills/{skill-name}/SKILL.md` (글로벌 레벨)
+### 技能文件结构
+位置: `项目/.claude/skills/{skill-name}/SKILL.md` (项目级别)
+或: `~/.claude/skills/{skill-name}/SKILL.md` (全局级别)
 
-### 통합 스킬 (오케스트레이터)
-팀 전체를 조율하는 상위 스킬. 시나리오별 에이전트 구성과 워크플로우를 정의.
-템플릿: `references/orchestrator-template.md` 참조.
-**실행 모드를 반드시 명시** — 에이전트 팀(기본) 또는 서브 에이전트.
+### 集成技能 (编排器)
+协调整个团队的上层技能。定义各场景的智能体配置和工作流。
+模板: 参考 `references/orchestrator-template.md`。
+**必须注明执行模式** — 智能体团队 (默认) 或子智能体。

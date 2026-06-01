@@ -125,7 +125,7 @@ Use the `type/short-description` shape:
 
 ### Commit message language
 
-- **Korean and English are both accepted.** Write in whichever you are more precise in.
+- **Chinese and English are both accepted.** Write in whichever you are more precise in.
 - If the change will appear in the CHANGELOG or release notes, please also provide an English title in the PR description so downstream readers can follow.
 
 ### PR template
@@ -167,7 +167,7 @@ We follow a light variant of **Conventional Commits** that maps directly to SemV
 | `fix:` | **patch** (e.g. 1.2.3 → 1.2.4) | `fix: correct flag detection on zsh` |
 | `docs:` / `chore:` / `refactor:` / `test:` | no release bump | `docs: clarify Gemini roadmap` |
 
-- Korean summaries are fine: `feat: 전문가 풀 패턴에 분산 지표 추가`.
+- Chinese summaries are fine: `feat: 为专家池模式添加分散度指标`.
 - The `!` suffix (or `BREAKING CHANGE:` footer) is the **only** canonical major-version trigger. Please do not set it lightly.
 
 ### Release tagging
@@ -198,7 +198,7 @@ Report Code of Conduct violations privately to `robin.hwang@kakaocorp.com` with 
 | Role | Handle | Area |
 |------|--------|------|
 | Lead maintainer | [@revfactory](https://github.com/revfactory) | Project direction, releases, final review |
-| Contributor | [@hnts03](https://github.com/hnts03) | Skill templates, Korean documentation |
+| Contributor | [@hnts03](https://github.com/hnts03) | Skill templates, Chinese documentation |
 | Contributor | [@JunghwanNA](https://github.com/JunghwanNA) | Agent patterns, integration tests |
 | Contributor | [@shaun0927](https://github.com/shaun0927) | Tooling, CI, infra |
 
